@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutor de Inglés con Claude</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: linear-gradient(135deg, #fff5f5, #ffe3e3); color: #2b2b2b; }
+    .container { max-width: 980px; margin: auto; padding: 28px 16px 50px; }
+    .hero { background: #b00020; color: white; border-radius: 24px; padding: 28px; box-shadow: 0 16px 40px rgba(176,0,32,.25); }
+    .hero h1 { margin: 0 0 10px; font-size: 34px; }
+    .hero p { margin: 0; font-size: 18px; line-height: 1.5; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; margin-top: 20px; }
+    .card { background: white; border-radius: 22px; padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.08); border: 1px solid #ffd0d0; }
+    .card.full { grid-column: 1 / -1; }
+    label { display:block; font-weight:bold; margin-bottom:8px; color:#7a0015; }
+    textarea, select { width:100%; border:2px solid #ffd0d0; border-radius:16px; padding:14px; font-size:16px; outline:none; background:#fffafa; }
+    textarea { min-height: 115px; resize: vertical; }
+    textarea:focus, select:focus { border-color:#b00020; }
+    .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    button { border:none; border-radius:999px; padding:13px 18px; font-weight:bold; cursor:pointer; font-size:15px; transition:transform .1s ease, opacity .2s ease; }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .primary { background:#b00020; color:white; }
+    .secondary { background:#ffe1e1; color:#7a0015; }
+    .dark { background:#2b2b2b; color:white; }
+    .status { margin-top:12px; font-size:14px; color:#555; }
+    .answerBox { background:#fff6f6; border:2px dashed #ffb3b3; border-radius:18px; padding:18px; min-height:100px; line-height:1.8; font-size:20px; }
+    .slowLine { background:white; border-left:6px solid #b00020; padding:12px 14px; border-radius:12px; margin:10px 0; font-size:22px; }
+    .hint { font-size:14px; color:#666; line-height:1.5; margin-top:8px; }
+    .pill { display:inline-block; padding:6px 10px; background:#ffe1e1; color:#7a0015; border-radius:999px; font-size:13px; font-weight:bold; margin-bottom:10px; }
+    .error-message { background:#ffebee; border-left:4px solid #c62828; padding:12px; border-radius:8px; color:#c62828; margin-top:10px; font-size:14px; }
+    @media (max-width:760px){ .grid{grid-template-columns:1fr;} .hero h1{font-size:28px;} }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="hero">
+      <h1>🎧 Tutor de Inglés con Claude</h1>
+      <p>Escucha una pregunta en inglés, escribe o graba lo que entendiste y recibe una respuesta corta, clara y fácil de repetir.</p>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <span class="pill">Paso 1</span>
+        <label for="question">Pregunta que escuchaste en inglés</label>
+        <textarea id="question" placeholder="Ejemplo: What is the first day of the week?"></textarea>
+        <div class="buttons">
+          <button class="primary" id="listenBtn">🎙️ Escuchar pregunta</button>
+          <button class="secondary" id="clearBtn">Limpiar</button>
+        </div>
+        <div class="status" id="listenStatus">Puedes grabar con el micrófono o escribir la pregunta manualmente.</div>
+      </div>
+
+      <div class="card">
+        <span class="pill">Configuración</span>
+        <label for="level">Nivel del estudiante</label>
+        <select id="level">
+          <option value="cero">No sé nada de inglés</option>
+          <option value="basico">Básico A1</option>
+          <option value="a2b1" selected>A2 casi B1</option>
+          <option value="intermedio">Intermedio</option>
+        </select>
+        <br><br>
+        <label for="voiceSpeed">Velocidad de lectura</label>
+        <select id="voiceSpeed">
+          <option value="0.7">Muy lenta (0.7x)</option>
+          <option value="0.85" selected>Lenta (0.85x)</option>
+          <option value="1">Normal (1x)</option>
+          <option value="1.2">Rápida (1.2x)</option>
+        </select>
+        <br><br>
+        <label for="responseLength">Largo de respuesta</label>
+        <select id="responseLength">
+          <option value="corta" selected>Corta (1-2 frases)</option>
+          <option value="media">Media (3-4 frases)</option>
+          <option value="larga">Larga (5-6 frases)</option>
+        </select>
+      </div>
+
+      <div class="card full">
+        <span class="pill">Contexto opcional</span>
+        <label for="studentContext">Datos del estudiante o curso</label>
+        <textarea id="studentContext" placeholder="Ejemplo: El curso es de inglés básico. El estudiante estudia en UBE. Usar estos datos solo si la pregunta lo necesita."></textarea>
+        <div class="hint">Estos datos se envían a Claude, pero el tutor solo los usa cuando la pregunta lo requiere.</div>
+      </div>
+
+      <div class="card full">
+        <span class="pill">Paso 2</span>
+        <label>Respuesta generada por Claude</label>
+        <div class="buttons">
+          <button class="primary" id="generateBtn">✨ Crear respuesta</button>
+          <button class="dark" id="speakBtn">🔊 Escuchar respuesta</button>
+          <button class="secondary" id="stopBtn">⏹️ Detener</button>
+        </div>
+        <div id="answerBox" class="answerBox">Aquí aparecerá una respuesta corta en inglés, separada por partes.</div>
+        <div id="errorBox"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const questionEl = document.getElementById('question');
+    const answerBox = document.getElementById('answerBox');
+    const errorBox = document.getElementById('errorBox');
+    const generateBtn = document.getElementById('generateBtn');
+    const speakBtn = document.getElementById('speakBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const listenBtn = document.getElementById('listenBtn');
+    const listenStatus = document.getElementById('listenStatus');
+    const level = document.getElementById('level');
+    const voiceSpeed = document.getElementById('voiceSpeed');
+    const responseLength = document.getElementById('responseLength');
+    const studentContext = document.getElementById('studentContext');
+    let currentAnswerText = '';
+
+    function showError(message) {
+      errorBox.innerHTML = `<div class="error-message">${message}</div>`;
+      setTimeout(() => { errorBox.innerHTML = ''; }, 7000);
+    }
+
+    function splitIntoChunks(text) {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+      return sentences.map(s => s.trim()).filter(Boolean);
+    }
+
+    function renderAnswer(answer) {
+      currentAnswerText = answer;
+      answerBox.innerHTML = '';
+      splitIntoChunks(answer).forEach(chunk => {
+        const div = document.createElement('div');
+        div.className = 'slowLine';
+        div.textContent = chunk;
+        answerBox.appendChild(div);
+      });
+    }
+
+    async function generateAnswer() {
+      const question = questionEl.value.trim();
+      if (!question) return showError('Primero escribe o graba la pregunta en inglés.');
+
+      generateBtn.disabled = true;
+      answerBox.textContent = 'Claude está preparando una respuesta...';
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question,
+            level: level.value,
+            responseLength: responseLength.value,
+            studentContext: studentContext.value.trim()
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'No se pudo generar la respuesta.');
+        renderAnswer(data.answer);
+      } catch (error) {
+        answerBox.textContent = 'No se pudo generar una respuesta.';
+        showError(error.message);
+      } finally {
+        generateBtn.disabled = false;
+      }
+    }
+
+    generateBtn.addEventListener('click', generateAnswer);
+
+    speakBtn.addEventListener('click', () => {
+      if (!currentAnswerText) return showError('Primero crea una respuesta.');
+      window.speechSynthesis.cancel();
+      splitIntoChunks(currentAnswerText).forEach((chunk, index) => {
+        const utterance = new SpeechSynthesisUtterance(chunk);
+        utterance.lang = 'en-US';
+        utterance.rate = Number(voiceSpeed.value);
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        setTimeout(() => window.speechSynthesis.speak(utterance), index * 1800);
+      });
+    });
+
+    stopBtn.addEventListener('click', () => window.speechSynthesis.cancel());
+
+    clearBtn.addEventListener('click', () => {
+      questionEl.value = '';
+      currentAnswerText = '';
+      answerBox.textContent = 'Aquí aparecerá una respuesta corta en inglés, separada por partes.';
+      listenStatus.textContent = 'Puedes grabar con el micrófono o escribir la pregunta manualmente.';
+      window.speechSynthesis.cancel();
+      errorBox.innerHTML = '';
+    });
+
+    listenBtn.addEventListener('click', () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        listenStatus.textContent = 'Tu navegador no permite reconocimiento de voz. Usa Chrome o escribe la pregunta manualmente.';
+        return;
+      }
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.start();
+      listenStatus.textContent = 'Escuchando... habla o reproduce la pregunta en inglés cerca del micrófono.';
+      recognition.onresult = event => {
+        questionEl.value = event.results[0][0].transcript;
+        listenStatus.textContent = 'Pregunta detectada. Ahora presiona Crear respuesta.';
+      };
+      recognition.onerror = () => listenStatus.textContent = 'No se pudo escuchar bien. Intenta de nuevo o escribe la pregunta.';
+      recognition.onend = () => {
+        if (!questionEl.value.trim()) listenStatus.textContent = 'Grabación finalizada. Si no apareció texto, intenta de nuevo.';
+      };
+    });
+  </script>
+</body>
+</html>
